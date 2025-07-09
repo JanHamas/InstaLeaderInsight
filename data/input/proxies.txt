@@ -1,0 +1,10 @@
+38.154.227.167:5868:wfedctnv:dtx8fc3dieg8
+198.23.239.134:6540:wfedctnv:dtx8fc3dieg8
+207.244.217.165:6712:wfedctnv:dtx8fc3dieg8
+107.172.163.27:6543:wfedctnv:dtx8fc3dieg8
+216.10.27.159:6837:wfedctnv:dtx8fc3dieg8
+136.0.207.84:6661:wfedctnv:dtx8fc3dieg8
+64.64.118.149:6732:wfedctnv:dtx8fc3dieg8
+142.147.128.93:6593:wfedctnv:dtx8fc3dieg8
+104.239.105.125:6655:wfedctnv:dtx8fc3dieg8
+206.41.172.74:6634:wfedctnv:dtx8fc3dieg8

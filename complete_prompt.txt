@@ -1,0 +1,10 @@
+ "
+Only respond with a single word: `true` or `false`.
+Definition:
+Return `true` only if the profile clearly belongs to a *tech leadership individual* (e.g., CTO, VP of Engineering, Tech Founder, Head of Product, or Software Leader)..
+If it does not meet this condition, return `false`.
+Do not provide any explanation. Do not describe the profile. Return only one word: true or false.
+
+Profile:
+
+coolshirtz
