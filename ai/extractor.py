@@ -20,7 +20,7 @@ from util.helper import random_user_agent
 # load all var from .env file
 load_dotenv
 
-async def check_using_ai(ai_prompt: str, header_text: str) -> str | None:
+async def ai_profile_checker(ai_prompt: str, header_text: str) -> str | None:
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     messages = [{"role": "user", "content": f"{ai_prompt}{header_text}"}]
 
@@ -40,13 +40,11 @@ async def check_using_ai(ai_prompt: str, header_text: str) -> str | None:
         print(traceback.format_exc())
         return None
 
-
 def update_excel(row: list[str]) -> None:
     wb = openpyxl.load_workbook(settings.LEADS_FILE_PATH)
     sheet = wb.active
     sheet.append(row)
     wb.save(settings.LEADS_FILE_PATH)
-
 
 def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[str]]:
     if not os.path.exists(settings.USERNAMES_FILE_PATH):
@@ -69,8 +67,7 @@ def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[st
 async def pause_for_user():
     await ainput("Change VPN and press Enter to continue: ")
 
-async def check_profile_using_ai(page, usernames: list[str]) -> None:
-    global username
+async def scrap_profile(page, usernames: list[str]) -> None:
     for username in usernames:
         url = f"https://www.{username}/"
         try:
@@ -85,7 +82,6 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                 # Optional: retry or continue
                 continue
 
-
             # Read existing usernames from the file
             if os.path.exists(settings.CHECKED_USERNAMES_FILE_PATH):
                 with open(settings.CHECKED_USERNAMES_FILE_PATH, 'r', encoding='utf-8') as f:
@@ -97,7 +93,6 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
             if username not in checked_usernames:
                 with open(settings.CHECKED_USERNAMES_FILE_PATH, 'a', encoding='utf-8') as f:
                     f.write(username + "\n")
-
 
             # Remove the username from usernames.txt
             with open(settings.USERNAMES_FILE_PATH, 'r', encoding='utf-8') as f:
@@ -111,7 +106,7 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                 locator = page.locator("header, .header, div[role='banner']").first
                 try:
                     profile_header_text = (await locator.inner_text()).lower()
-                    print(profile_header_text)
+                    # print(profile_header_text)
                 except Exception as e:
                     print("Error extracting header text:", e)
                     profile_header_text = ""
@@ -137,7 +132,7 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                         with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
                             f.write(config_input.AI_PROMPT + "\n" + profile_header_text)
 
-                        ai_response = await check_using_ai(config_input.AI_PROMPT, profile_header_text)
+                        ai_response = await ai_profile_checker(config_input.AI_PROMPT, profile_header_text)
                         
                         print("AI RESPONSE","\n",ai_response)
 
@@ -153,7 +148,7 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                         with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
                             f.write(config_input.AI_PROMPT + "\n" + profile_header_text)
 
-                        ai_response = await check_using_ai(config_input.AI_PROMPT, profile_header_text)
+                        ai_response = await ai_profile_checker(config_input.AI_PROMPT, profile_header_text)
                         
                         print("AI RESPONSE","\n",ai_response)
 
@@ -197,17 +192,18 @@ async def every_profile_checker():
             permissions = ["geolocation"]
             )
         
-        # first login in insta
+        # first login in instagram
         await login_insta(context)
         username_chunks = split_usernames_into_chunks()
 
         tasks = []
         for chunk in username_chunks:
             page = await context.new_page()
-            tasks.append(check_profile_using_ai(page, chunk))
+            tasks.append(scrap_profile(page, chunk))
 
         await asyncio.gather(*tasks)
 
+# this function will be scrap programaticaly profile when ai give True word as a reponsive
 async def copy_profile(page):
     # Get complete header text (bio, contact info, etc.)
     complete_header_ele = page.locator("header, .header, div[role='banner']")
@@ -259,6 +255,7 @@ async def copy_profile(page):
     all_info = complete_header_text.strip()
 
     # Final row in order of: Name, Username, Post Count, Followers, Following, Phone/Email, Website, Bio
+    username = await page.url
     print([name, username, post_count, followers, following, contact_str, website_str, bio, all_info])
     return [name, username, post_count, followers, following, contact_str, website_str, bio, all_info]
 

@@ -141,6 +141,9 @@ async def open_and_scrape_followers(page, username):
             await fast_scroll(page=page)
             await fast_scroll(page=page)
             await fast_scroll(page=page)
+            await fast_scroll(page=page)
+            await fast_scroll(page=page)
+            await fast_scroll(page=page)
 
     except Exception as e:
         print(f"[X] Error scraping {username}: {e}")

@@ -9,17 +9,19 @@ Profile:
 """
 
 USERNAMES = [
-    "sherylsandberg",         # Former COO, Meta
-    "ambarp",                 # Ambarish Paranjape, tech exec
-    "cyberjournalist",        # Sree Sreenivasan, tech/media
-    "jsquires",               # Jane Squires, tech writer/editor
-    "sundarpichai",           # CEO, Google
-    "satyanadella",          # CEO, Microsoft
-    "tim_cook",              # CEO, Apple
-    "elonmusk",              # CEO, Tesla/SpaceX/X
-                            # Sam Altman, CEO OpenAI
+    "ambarp",              # Ambarish Paranjape, tech exec
+              # MG Siegler, GV investor
 ]
 
+# "cyberjournalist",     # Sree Sreenivasan, tech/media
+#     "jsquires",            # Jane Squires, tech editor
+#     "naval",               # Naval Ravikant, AngelList
+#     "garyvee",             # Gary Vaynerchuk, tech/media investor
+#     "arrington",           # Michael Arrington, TechCrunch founder
+#     "a16z",                # Andreessen Horowitz (firm)
+#     "pmarca",              # Marc Andreessen, VC (a16z)
+#     "mikko",               # Mikko Hypponen, cybersecurity
+#     "mgsiegler", 
 # how much followers or following want to extract per profile
 user_connection = "following"
 how_much_followers_check = 50000

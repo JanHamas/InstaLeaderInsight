@@ -1,5 +1,5 @@
 import asyncio
-from core.scraper import prevent_display_off,enable_default_sleep_behavior,followers_scraper_main
+from core.scraper import prevent_display_off,enable_default_sleep_behavior
 from ai.extractor import every_profile_checker
 
 
@@ -12,6 +12,7 @@ if __name__ == "__main__":
         print(e)
     finally:
         enable_default_sleep_behavior()
+
 
 
 

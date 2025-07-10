@@ -25,11 +25,11 @@ CHECKED_USERNAMES_FILE_PATH = 'data/ouput/checked_usernames.txt'
 
 
 # size of tabs that should be open for check every profiles header section
-chunk_size = 3
+chunk_size = 5
 
 # excel lead file path
 LEADS_FILE_PATH = 'data/ouput/InstaLeaderShip.xlsx'
 
 # ON/OFF HEADLESS MODE
-HEADLESS = False
+HEADLESS = True
 
