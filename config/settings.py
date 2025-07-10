@@ -8,7 +8,7 @@ OUTPUT_FILE_PATH = "data/ouput/InstaLeaderShip.xlsx"
 RANDOM_CLICK_SLEEP = random.randint(1,5)
 
 #
-SLEEP_BETWEEN_PAGE_LOADS = random.randint(3,5)*1000
+SLEEP_BETWEEN_PAGE_LOADS = random.randint(3,6)*1000
 
 # screenshot folder for debuging
 SCREENSHOT_FOLDER = "data/screenshot"
@@ -29,4 +29,7 @@ chunk_size = 3
 
 # excel lead file path
 LEADS_FILE_PATH = 'data/ouput/InstaLeaderShip.xlsx'
+
+# ON/OFF HEADLESS MODE
+HEADLESS = False
 

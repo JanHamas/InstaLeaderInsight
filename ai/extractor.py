@@ -7,21 +7,21 @@ import traceback
 import openpyxl
 from groq import Groq 
 from dotenv import load_dotenv
-import pyautogui
-import time
 from aioconsole import ainput  # Async input library
+# Add the project root to sys.path so 'config' can be imported
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config import settings
+from data.input import config_input
+from config.login import login_insta
+from playwright_stealth import Stealth
+from playwright.async_api import async_playwright
+from util.helper import random_user_agent
 
 # load all var from .env file
 load_dotenv
 
-# Add the project root to sys.path so 'config' can be imported
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from config import settings
-from core.browser import get_browser_and_context
-from data.input import config_input
-
 async def check_using_ai(ai_prompt: str, header_text: str) -> str | None:
-    client = Groq(api_key='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')
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     messages = [{"role": "user", "content": f"{ai_prompt}{header_text}"}]
 
     try:
@@ -66,7 +66,6 @@ def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[st
 
     return chunks
 
-
 async def pause_for_user():
     await ainput("Change VPN and press Enter to continue: ")
 
@@ -107,12 +106,16 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
             with open(settings.USERNAMES_FILE_PATH, 'w', encoding='utf-8') as f:
                 f.writelines(lines)
             try:
+                
+                
                 locator = page.locator("header, .header, div[role='banner']").first
                 try:
                     profile_header_text = (await locator.inner_text()).lower()
+                    print(profile_header_text)
                 except Exception as e:
                     print("Error extracting header text:", e)
                     profile_header_text = ""
+
                 
                 if config_input.is_verified.lower().strip() == "yes":
                     # first check if profile verified if yes process otherwise skip
@@ -127,7 +130,8 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                         print(f"Error processing profile: {e}")
                         is_verified = False  # ensure it's always defined
                     print(is_verified)
-                    if  is_verified and any(words.lower().strip() in profile_header_text for words in config_input.LEADERSHIP_KEYWORDS):
+                    header_text = profile_header_text.strip().lower()
+                    if any(keyword.lower().strip() in header_text for keyword in config_input.LEADERSHIP_KEYWORDS):
                         print(is_verified)
                         print(username)
                         with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
@@ -143,7 +147,8 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                             row = await copy_profile(page=page)
                             update_excel(row)
                 else:
-                    if  any(words.lower().strip() in profile_header_text for words in config_input.LEADERSHIP_KEYWORDS):
+                    header_text = profile_header_text.strip().lower()
+                    if any(keyword.lower().strip() in header_text for keyword in config_input.LEADERSHIP_KEYWORDS):
                         print(username)
                         with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
                             f.write(config_input.AI_PROMPT + "\n" + profile_header_text)
@@ -166,18 +171,42 @@ async def check_profile_using_ai(page, usernames: list[str]) -> None:
                 print(e)
             # print(f"Error visiting {url}: {e}")
 
-
+# after listing go through each profile and checking there profile and scrap if cretria matching
 async def every_profile_checker():
-    browser, context = await get_browser_and_context()
-    username_chunks = split_usernames_into_chunks()
+    async with Stealth().use_async(async_playwright()) as p:
+        # random Viewport
+        viewport = {
+            'width': random.randint(1024,1920),
+            'height': random.randint(784,1080)
+        }
 
-    tasks = []
-    for chunk in username_chunks:
-        page = await context.new_page()
-        tasks.append(check_profile_using_ai(page, chunk))
+        # random timezone
+        timezones = ["America/New_York","Europe/London","Asia/Kolkata","Asia/Dubai","America/Los_Angeles"]
+        timezone = random.choice(timezones)
 
-    await asyncio.gather(*tasks)
+        # random locales
+        locales = ["en-US", "en-GB", "fr-FR", "de-DE", 'es-ES']
+        locale = random.choice(locales)
 
+        browser = await p.chromium.launch(headless=settings.HEADLESS,args=["--disable-blink-features=AutomationControlled"])
+        context = await browser.new_context(
+            user_agent=random_user_agent,
+            timezone_id=timezone,
+            viewport=viewport,
+            device_scale_factor = random.uniform(1.0,2.0),
+            permissions = ["geolocation"]
+            )
+        
+        # first login in insta
+        await login_insta(context)
+        username_chunks = split_usernames_into_chunks()
+
+        tasks = []
+        for chunk in username_chunks:
+            page = await context.new_page()
+            tasks.append(check_profile_using_ai(page, chunk))
+
+        await asyncio.gather(*tasks)
 
 async def copy_profile(page):
     # Get complete header text (bio, contact info, etc.)
@@ -233,19 +262,6 @@ async def copy_profile(page):
     print([name, username, post_count, followers, following, contact_str, website_str, bio, all_info])
     return [name, username, post_count, followers, following, contact_str, website_str, bio, all_info]
 
-
-async def clear_browser_cache(page):
-    await page.goto("chrome://settings/clearBrowserData?search=cache")  # now await
-
-    # Run pyautogui code in a separate thread to not block the async loop
-    time.sleep(1)
-    await asyncio.to_thread(pyautogui.press, 'tab')
-    time.sleep(1)
-    await asyncio.to_thread(pyautogui.press, 'enter')
-    time.sleep(1)
-    await asyncio.to_thread(pyautogui.hotkey, 'ctrl', 'w')
-
-    
 
 if __name__ == "__main__":
     try:

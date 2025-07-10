@@ -1,12 +1,18 @@
 from config import settings
 import os
-import re
 import random
 from data.input import config_input
 import ctypes
-import time
 import asyncio
-import pyautogui
+import asyncio
+from data.input import config_input
+# from ai.extractor import every_profile_checker
+from config.login import login_insta
+from playwright_stealth import Stealth
+from playwright.async_api import async_playwright
+import random
+from util.helper import random_user_agent
+from ai.extractor import every_profile_checker
 
 # Prevent display to off
 def prevent_display_off():
@@ -26,7 +32,7 @@ def enable_default_sleep_behavior():
 
 # load those usernames which we have checked there profile and also those which we are saved in usernames.txt for checking there profile
 saved_usernames = set()
-def load_saved_usernames():
+async def load_saved_usernames():
     """Load usernames from usernames.txt file to prevent duplicates"""
     if os.path.exists(settings.USERNAMES_FILE_PATH):
         with open(settings.USERNAMES_FILE_PATH, 'r') as f:
@@ -141,3 +147,43 @@ async def open_and_scrape_followers(page, username):
     finally:
         await page.close()
         
+
+
+# for listing following/followers from provided usernames
+async def followers_scraper_main():
+    async with Stealth().use_async(async_playwright()) as p:
+        await load_saved_usernames()
+
+        # random Viewport
+        viewport = {
+            'width': random.randint(1024,1920),
+            'height': random.randint(784,1080)
+        }
+
+        # random timezone
+        timezones = ["America/New_York","Europe/London","Asia/Kolkata","Asia/Dubai","America/Los_Angeles"]
+        timezone = random.choice(timezones)
+
+        # random locales
+        locales = ["en-US", "en-GB", "fr-FR", "de-DE", 'es-ES']
+        locale = random.choice(locales)
+
+        browser = await p.chromium.launch(headless=settings.HEADLESS,args=["--disable-blink-features=AutomationControlled"])
+        context = await browser.new_context(
+            user_agent=random_user_agent,
+            timezone_id=timezone,
+            viewport=viewport,
+            device_scale_factor = random.uniform(1.0,2.0),
+            permissions = ["geolocation"]
+            )
+        
+        # first login in insta
+        await login_insta(context)
+
+        tasks = []
+        for username in config_input.USERNAMES:
+            page = await context.new_page()
+            tasks.append(open_and_scrape_followers(page, username))
+
+        await asyncio.gather(*tasks)
+
