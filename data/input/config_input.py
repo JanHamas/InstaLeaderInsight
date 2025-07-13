@@ -8,11 +8,19 @@ Do not provide any explanation. Do not describe the profile. Return only one wor
 Profile:
 """
 
-USERNAMES = [             
-    "garyvee",                          
-    "mikko",               
-    "mgsiegler", 
+USERNAMES = [
+    "tech.unicorn", "thisistechtoday", "phoneridar", "techgiving",
+    "allthingstori123", "klug_tech", "vanlifetech", "mastertechpk",
+    "itstechnical8", "blackwomentalktech", "mobilopedia", "techikeee",
+    "techinfluencemedia", "bigtechmoney", "tec_tok_by_hareesh", "imjustcyrus",
+    "iJustine",
+    # "andrewethanzeng", "betterscreentime", "meshaobbreona", "cleoabram",
+    # "austinnasso", "taramreed_", "familytech", "alliekmiller",
+    # "karlconrad", "lilmiquela", "lovee_charms", "hadyouatsalaam",
+    # "tayllorlloyd", "tiffintech", "shudu.gram", "tatam.digital"
 ]
+
+
 
 
 # how much followers or following want to extract per profile

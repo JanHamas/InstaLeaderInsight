@@ -1,8 +1,11 @@
 from urllib.parse import urlparse, parse_qs
 from twocaptcha import TwoCaptcha
 from dotenv import load_dotenv
-from util.helper import get_latest_instagram_otp
+from util.helpers import get_latest_instagram_otp
+from aioconsole import ainput
 import os
+from config import settings
+
 
 # Load .env variables
 load_dotenv()
@@ -64,7 +67,7 @@ async def get_site_key(page):
 async def check_and_solve_captcha(page):
     try:
         # Wait for potential CAPTCHA elements to load
-        await page.wait_for_timeout(7000)
+        await page.wait_for_timeout(settings.wait_if_captcha_appear)
         
         # Detect CAPTCHA presence
         # if await page.locator("iframe[src*='recaptcha'], div.g-recaptcha").count() > 0:
@@ -93,7 +96,8 @@ async def check_and_solve_captcha(page):
         # Sometimes Instagram requires OTP verification
         if "auth_platform/" in page.url:
             print("🔐 Waiting for Instagram OTP from Gmail inbox...")
-            otp = await get_latest_instagram_otp(os.getenv("EMAIL"), os.getenv("APP_PASSWORD"))
+            # otp = await get_latest_instagram_otp(os.getenv("EMAIL"), os.getenv("APP_PASSWORD"))
+            otp = await ainput("Enter sent otp")
             if not otp:
                 raise RuntimeError("❌ OTP not found—login will fail.")
             

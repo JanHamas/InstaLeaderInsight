@@ -2,30 +2,13 @@ from config import settings
 import os
 import random
 from data.input import config_input
-import ctypes
 import asyncio
 import asyncio
 from data.input import config_input
 # from ai.extractor import every_profile_checker
-from config.login import login_insta
 from playwright.async_api import async_playwright
-import random
-
-# Prevent display to off
-def prevent_display_off():
-    # Prevent the system from sleeping or turning off the display
-    ES_CONTINUOUS = 0x80000000
-    ES_SYSTEM_REQUIRED = 0x00000001
-    ES_DISPLAY_REQUIRED = 0x00000002
-    ctypes.windll.kernel32.SetThreadExecutionState(
-        ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
-    )
-
-# renable default sleep behavior
-def enable_default_sleep_behavior():
-    # Re-enable normal sleep behavior
-    ES_CONTINUOUS = 0x80000000
-    ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+import random,gc
+from util import helpers
 
 # load those usernames which we have checked there profile and also those which we are saved in usernames.txt for checking there profile
 saved_usernames = set()
@@ -55,7 +38,7 @@ async def load_saved_usernames():
     saved_usernames.update(GARBAG_URSERNAMES)
 
 # save new usernames without duplicate
-async def save_new_usernames(follower_elements):
+async def save_new_usernames(page,follower_elements):
     global how_much_followers_check  # 👈 this tells Python to use the global variable
     with open(settings.USERNAMES_FILE_PATH, 'a') as f:
         for follower in follower_elements:
@@ -69,6 +52,9 @@ async def save_new_usernames(follower_elements):
                     print(username)
             except Exception as e:
                 print(f"[!] Error reading user: {e}")
+                await page.close()
+                break
+                
 
 # for fast scrolling function we have defined
 async def fast_scroll(page):
@@ -76,12 +62,11 @@ async def fast_scroll(page):
         await page.mouse.wheel(0, random.randint(800, 1200))  # Larger scroll
         await asyncio.sleep(random.uniform(0.3, 0.5))  # Smaller delay
 
-
 # var that count followers/following to base on provided number from input.py files
 how_much_followers_check = 0
 
 # main func that opening users profiles and extract there followers/following
-async def open_and_scrape_followers(page, username):
+async def open_and_scrape_followers(context,page, username):
     """Scrape followers from an Instagram profile using a page with cache disabled."""
     # Navigate to the Instagram profile
     await page.goto(f"https://www.instagram.com/{username}/", timeout=120000, wait_until="load")
@@ -95,12 +80,14 @@ async def open_and_scrape_followers(page, username):
 
         previous_usernames = set()
         unchanged_count = 0
+        scrolling_count = 0
 
         while True:
+
             followers = page.locator('a[role="link"][tabindex="0"] div div span[dir="auto"]')
             follower_elements = await followers.all()
 
-            await save_new_usernames(follower_elements)
+            await save_new_usernames(page,follower_elements)
 
             current_usernames = set()
             for el in follower_elements:
@@ -131,16 +118,22 @@ async def open_and_scrape_followers(page, username):
             await scrollable.hover()
             await scrollable.focus()
 
-            for _ in range(12):
-                await fast_scroll(page=page)
+            # behave like ctrl+tab for keep focus on tabs
+            helpers.switch_tab(context)
             
 
+            for _ in range(15):
+                await fast_scroll(page=page)
+            
+            # clear garbab after three time scrolling
+            if scrolling_count % 3 == 0:
+                 gc.collect()
+            
     except Exception as e:
         print(f"[X] Error scraping {username}: {e}")
+        await page.close()
     finally:
         await page.close()
-        
-
 
 # for listing following/followers from provided usernames
 async def followers_scraper_main():
@@ -148,14 +141,12 @@ async def followers_scraper_main():
     await load_saved_usernames()
 
     browser = await p.chromium.launch(headless=settings.HEADLESS)
-    context = await browser.new_context()
-    
-    # first login in insta
-    await login_insta(context)
+    context = await browser.new_context(storage_state="auth.json")
 
     tasks = []
     for username in config_input.USERNAMES:
         page = await context.new_page()
-        tasks.append(open_and_scrape_followers(page, username))
+        tasks.append(open_and_scrape_followers(context,page, username))
 
     await asyncio.gather(*tasks)
+    await helpers.close_context_and_keep_latest_two(context)
