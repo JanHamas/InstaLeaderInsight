@@ -8,11 +8,8 @@ import asyncio
 from data.input import config_input
 # from ai.extractor import every_profile_checker
 from config.login import login_insta
-from playwright_stealth import Stealth
 from playwright.async_api import async_playwright
 import random
-from util.helper import random_user_agent
-from ai.extractor import every_profile_checker
 
 # Prevent display to off
 def prevent_display_off():
@@ -90,7 +87,7 @@ async def open_and_scrape_followers(page, username):
     await page.goto(f"https://www.instagram.com/{username}/", timeout=120000, wait_until="load")
 
     # Random delay to mimic human behavior
-    await page.wait_for_timeout(settings.SLEEP_BETWEEN_PAGE_LOADS)
+    await asyncio.sleep(settings.SLEEP_BETWEEN_PAGE_LOADS)
 
     try:
         await page.locator(f"text='{config_input.user_connection}'").first.click()
@@ -117,12 +114,14 @@ async def open_and_scrape_followers(page, username):
 
             if unchanged_count >= 2:
                 print(f"✅ Reached bottom of the followers list for {username}")
+                await page.close()
                 break
 
             previous_usernames = current_usernames
 
             if how_much_followers_check >= config_input.how_much_followers_check:
                 print(f"We have successfully extracted {how_much_followers_check} followers/folloing")
+                await page.close()
                 break
 
             
@@ -132,18 +131,9 @@ async def open_and_scrape_followers(page, username):
             await scrollable.hover()
             await scrollable.focus()
 
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
-            await fast_scroll(page=page)
+            for _ in range(12):
+                await fast_scroll(page=page)
+            
 
     except Exception as e:
         print(f"[X] Error scraping {username}: {e}")
@@ -154,39 +144,18 @@ async def open_and_scrape_followers(page, username):
 
 # for listing following/followers from provided usernames
 async def followers_scraper_main():
-    async with Stealth().use_async(async_playwright()) as p:
-        await load_saved_usernames()
+    p = await async_playwright().start()
+    await load_saved_usernames()
 
-        # random Viewport
-        viewport = {
-            'width': random.randint(1024,1920),
-            'height': random.randint(784,1080)
-        }
+    browser = await p.chromium.launch(headless=settings.HEADLESS)
+    context = await browser.new_context()
+    
+    # first login in insta
+    await login_insta(context)
 
-        # random timezone
-        timezones = ["America/New_York","Europe/London","Asia/Kolkata","Asia/Dubai","America/Los_Angeles"]
-        timezone = random.choice(timezones)
+    tasks = []
+    for username in config_input.USERNAMES:
+        page = await context.new_page()
+        tasks.append(open_and_scrape_followers(page, username))
 
-        # random locales
-        locales = ["en-US", "en-GB", "fr-FR", "de-DE", 'es-ES']
-        locale = random.choice(locales)
-
-        browser = await p.chromium.launch(headless=settings.HEADLESS,args=["--disable-blink-features=AutomationControlled"])
-        context = await browser.new_context(
-            user_agent=random_user_agent,
-            timezone_id=timezone,
-            viewport=viewport,
-            device_scale_factor = random.uniform(1.0,2.0),
-            permissions = ["geolocation"]
-            )
-        
-        # first login in insta
-        await login_insta(context)
-
-        tasks = []
-        for username in config_input.USERNAMES:
-            page = await context.new_page()
-            tasks.append(open_and_scrape_followers(page, username))
-
-        await asyncio.gather(*tasks)
-
+    await asyncio.gather(*tasks)

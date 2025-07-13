@@ -1,25 +1,23 @@
 import sys
-import os
-import random
+import os,random
 import asyncio
 import re
 import traceback
 import openpyxl
 from groq import Groq 
 from dotenv import load_dotenv
-from aioconsole import ainput  # Async input library
-# Add the project root to sys.path so 'config' can be imported
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config import settings
 from data.input import config_input
 from config.login import login_insta
-from playwright_stealth import Stealth
 from playwright.async_api import async_playwright
-from util.helper import random_user_agent
+from util.bypass_captcha import check_and_solve_captcha
+from util.helper import load_proxies
+
 
 # load all var from .env file
 load_dotenv
 
+# this function are sending the user bio to ai for get TRUE/FALSE words base on provided criteria which in config_input.py
 async def ai_profile_checker(ai_prompt: str, header_text: str) -> str | None:
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     messages = [{"role": "user", "content": f"{ai_prompt}{header_text}"}]
@@ -40,12 +38,14 @@ async def ai_profile_checker(ai_prompt: str, header_text: str) -> str | None:
         print(traceback.format_exc())
         return None
 
+# this function are update excel file
 def update_excel(row: list[str]) -> None:
     wb = openpyxl.load_workbook(settings.LEADS_FILE_PATH)
     sheet = wb.active
     sheet.append(row)
     wb.save(settings.LEADS_FILE_PATH)
 
+# This function are split usernames from usernames.txt in to chunk for parallel execution on multiple tabs
 def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[str]]:
     if not os.path.exists(settings.USERNAMES_FILE_PATH):
         raise FileNotFoundError(f"File not found: {settings.USERNAMES_FILE_PATH}")
@@ -64,24 +64,9 @@ def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[st
 
     return chunks
 
-async def pause_for_user():
-    await ainput("Change VPN and press Enter to continue: ")
-
-async def scrap_profile(page, usernames: list[str]) -> None:
-    for username in usernames:
-        url = f"https://www.{username}/"
+# append checked usernames.txt file for avoid duplicate
+async def append_username(username):
         try:
-            await page.goto(url, wait_until="load", timeout=12000)
-            await page.wait_for_timeout(settings.SLEEP_BETWEEN_PAGE_LOADS)
-
-            # Inside your main function/loop:
-            content = await page.content()
-            if "There's an issue and the page could not be loaded." in content:
-                await pause_for_user()
-                content = await page.content()  # Re-check after VPN change
-                # Optional: retry or continue
-                continue
-
             # Read existing usernames from the file
             if os.path.exists(settings.CHECKED_USERNAMES_FILE_PATH):
                 with open(settings.CHECKED_USERNAMES_FILE_PATH, 'r', encoding='utf-8') as f:
@@ -93,117 +78,34 @@ async def scrap_profile(page, usernames: list[str]) -> None:
             if username not in checked_usernames:
                 with open(settings.CHECKED_USERNAMES_FILE_PATH, 'a', encoding='utf-8') as f:
                     f.write(username + "\n")
-
-            # Remove the username from usernames.txt
-            with open(settings.USERNAMES_FILE_PATH, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            lines = [line for line in lines if line.strip() != username]
-            with open(settings.USERNAMES_FILE_PATH, 'w', encoding='utf-8') as f:
-                f.writelines(lines)
-            try:
-                
-                
-                locator = page.locator("header, .header, div[role='banner']").first
-                try:
-                    profile_header_text = (await locator.inner_text()).lower()
-                    # print(profile_header_text)
-                except Exception as e:
-                    print("Error extracting header text:", e)
-                    profile_header_text = ""
-
-                
-                if config_input.is_verified.lower().strip() == "yes":
-                    # first check if profile verified if yes process otherwise skip
-                    verified_ele = page.locator("svg[aria-label='Verified']")
-                    try:
-                        if await verified_ele.count() > 0:
-                            is_verified = True
-                        else:
-                            print("Not Verified")
-                            is_verified = False
-                    except Exception as e:
-                        print(f"Error processing profile: {e}")
-                        is_verified = False  # ensure it's always defined
-                    print(is_verified)
-                    header_text = profile_header_text.strip().lower()
-                    if any(keyword.lower().strip() in header_text for keyword in config_input.LEADERSHIP_KEYWORDS):
-                        print(is_verified)
-                        print(username)
-                        with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
-                            f.write(config_input.AI_PROMPT + "\n" + profile_header_text)
-
-                        ai_response = await ai_profile_checker(config_input.AI_PROMPT, profile_header_text)
-                        
-                        print("AI RESPONSE","\n",ai_response)
-
-                        if "false" in ai_response.lower():
-                            pass
-                        elif str(ai_response.lower().strip()) == "true":
-                            row = await copy_profile(page=page)
-                            update_excel(row)
-                else:
-                    header_text = profile_header_text.strip().lower()
-                    if any(keyword.lower().strip() in header_text for keyword in config_input.LEADERSHIP_KEYWORDS):
-                        print(username)
-                        with open("complete_prompt.txt", 'w', encoding='utf-8') as f:
-                            f.write(config_input.AI_PROMPT + "\n" + profile_header_text)
-
-                        ai_response = await ai_profile_checker(config_input.AI_PROMPT, profile_header_text)
-                        
-                        print("AI RESPONSE","\n",ai_response)
-
-                        if "false" in ai_response.lower():
-                            pass
-                        elif str(ai_response.lower().strip()) == "true":
-                            row = await copy_profile(page=page)
-                            update_excel(row)
-            except Exception as e:
-                print(f"Error processing profile header for {username}: {e}")
+                    f.flush()
         except Exception as e:
-            with open(settings.USERNAMES_FILE_PATH,'a') as f:
-                f.write(username + "\n")
-                print(username,"are saved")
-                print(e)
-            # print(f"Error visiting {url}: {e}")
+            print(e)
 
-# after listing go through each profile and checking there profile and scrap if cretria matching
-async def every_profile_checker():
-    async with Stealth().use_async(async_playwright()) as p:
-        # random Viewport
-        viewport = {
-            'width': random.randint(1024,1920),
-            'height': random.randint(784,1080)
-        }
+# remove those username from usernames.txt which we have checked there profile 
+async def remove_username(username):
+    try:
+        # Remove the username from usernames.txt
+        with open(settings.USERNAMES_FILE_PATH, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        lines = set(line for line in lines if line.strip() != username)
+        with open(settings.USERNAMES_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+            f.flush()
+    except Exception as e:
+        print(e)
 
-        # random timezone
-        timezones = ["America/New_York","Europe/London","Asia/Kolkata","Asia/Dubai","America/Los_Angeles"]
-        timezone = random.choice(timezones)
+# resave the username sometime error accure to scrap/check user profle so we resave there username in usernames.txt
+async def resave_username(username):
+    try:
+        with open(settings.USERNAMES_FILE_PATH,"a") as f:
+            f.write(username + "\n")
+            f.flush()
+            # print("Sucessfully Resaved Username!")
+    except Exception as e:
+        print(e)
 
-        # random locales
-        locales = ["en-US", "en-GB", "fr-FR", "de-DE", 'es-ES']
-        locale = random.choice(locales)
-
-        browser = await p.chromium.launch(headless=settings.HEADLESS,args=["--disable-blink-features=AutomationControlled"])
-        context = await browser.new_context(
-            user_agent=random_user_agent,
-            timezone_id=timezone,
-            viewport=viewport,
-            device_scale_factor = random.uniform(1.0,2.0),
-            permissions = ["geolocation"]
-            )
-        
-        # first login in instagram
-        await login_insta(context)
-        username_chunks = split_usernames_into_chunks()
-
-        tasks = []
-        for chunk in username_chunks:
-            page = await context.new_page()
-            tasks.append(scrap_profile(page, chunk))
-
-        await asyncio.gather(*tasks)
-
-# this function will be scrap programaticaly profile when ai give True word as a reponsive
+# this function are calling in scrap_profile and they are programaticaly extract user profile name etc
 async def copy_profile(page):
     # Get complete header text (bio, contact info, etc.)
     complete_header_ele = page.locator("header, .header, div[role='banner']")
@@ -247,27 +149,132 @@ async def copy_profile(page):
     contacts = emails + phones
     contact_str = ", ".join(contacts)
 
-    # Websites
-    websites = re.findall(r'(https?://[^\s]+|www\.[^\s]+)', complete_header_text)
-    website_str = ", ".join([url.rstrip('.,') for url in websites])
+    # Websites regex pattern
+    websites_pattern = re.compile(
+        r'(https?://[^\s,]+|'                 # full http(s) links
+        r'www\.[^\s,]+|'                      # www based links
+        r'[a-zA-Z0-9.-]+\.(com|io|ai|co|org|net|me|vc|app|link|tv|to|ly)(/[^\s,]*)?)'  # domain patterns
+    )
+    # Find all matches
+    matches = websites_pattern.findall(complete_header_text)
+
+    # Extract only the full matched strings
+    extracted_urls = [match[0] if isinstance(match, tuple) else match for match in matches]
+
+    # Clean up any trailing punctuation and join as a string
+    website_str = "\n ".join([url.rstrip('.,') for url in extracted_urls])
 
     # all header section (remove contacts and websites from it if needed)
     all_info = complete_header_text.strip()
 
     # Final row in order of: Name, Username, Post Count, Followers, Following, Phone/Email, Website, Bio
-    username = await page.url
+    username = page.url
     print([name, username, post_count, followers, following, contact_str, website_str, bio, all_info])
     return [name, username, post_count, followers, following, contact_str, website_str, bio, all_info]
 
+# this is ma will be scrap programaticaly profile when ai give True word as a reponsive
+async def scrap_profile(browser, usernames: list[str]) -> None:
+    proxies = load_proxies(settings.PROXIES_FILE_PATH)
+    random.shuffle(proxies)
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(every_profile_checker())
-    except Exception as e:
-        print(f"Unhandled error: {e}")
+    recording = settings.record_video.lower().strip() == "on"
+    one_context_recording = False
+    context = None
 
+    # Try proxies until one works
+    for proxy in proxies:
+        try:
+            context_options = {"proxy": proxy}
 
+            if recording and not one_context_recording:
+                context_options["record_video_dir"] = "videos"
+                context_options["record_video_size"] = {"width": 1920, "height": 1080}
 
+            context = await browser.new_context(**context_options)
+            await login_insta(context)
 
+            print(f"✅ Proxy working: {proxy['server']}")
+            one_context_recording = True
+            break
+        except Exception as e:
+            print(f"❌ Proxy failed: {proxy['server']} — {e}")
+            continue
 
+    if not context:
+        print("❌ All proxies failed. Exiting.")
+        return
 
+    # Process each username
+    for username in usernames:
+        page = None
+        try:
+            page = await context.new_page()
+            url = f"https://www.{username}/"
+            await page.goto(url, wait_until="load", timeout=30000)
+            await asyncio.sleep(float(settings.SLEEP_BETWEEN_PAGE_LOADS))
+
+            await check_and_solve_captcha(page)
+
+            locator = page.locator("header, .header, div[role='banner']").first
+            profile_header_text = (await locator.inner_text()).lower()
+
+            if not profile_header_text:
+                await resave_username(username)
+                continue
+
+            await append_username(username)
+            await remove_username(username)
+
+            header_text = profile_header_text.strip().lower()
+
+            should_check = any(k.lower() in header_text for k in config_input.LEADERSHIP_KEYWORDS)
+
+            if not should_check:
+                continue
+
+            is_verified = False
+            if config_input.is_verified.lower().strip() == "yes":
+                verified_ele = page.locator("svg[aria-label='Verified']")
+                is_verified = await verified_ele.count() > 0
+                if not is_verified:
+                    print("Not Verified")
+                    continue
+
+            ai_response = await ai_profile_checker(config_input.AI_PROMPT, profile_header_text)
+            print("AI RESPONSE\n", ai_response)
+
+            if ai_response.lower().strip() == "true":
+                row = await copy_profile(page=page)
+                update_excel(row)
+
+        except Exception as e:
+            print(f"⚠️ Error scraping {username}: {e}")
+            await resave_username(username)
+
+        finally:
+            if page:
+                try:
+                    pages = context.pages
+                    if len(pages) > 1:
+                        await page.close()
+                except Exception as e:
+                    print(f"⚠️ Error while checking or closing page: {e}")
+
+    # Clean up context
+    await context.close()
+    print("🧹 Context closed after processing chunk.")
+
+# main funciton initialization browser and calling login function
+async def every_profile_checker():
+    p = await async_playwright().start()
+    browser = await p.chromium.launch(headless=settings.HEADLESS)
+
+    username_chunks = split_usernames_into_chunks()
+
+    tasks = []
+    for chunk in username_chunks:
+        # page = await context.new_page()
+        # tasks.append(scrap_profile(page, chunk))
+        tasks.append((scrap_profile(browser,chunk)))
+
+    await asyncio.gather(*tasks)

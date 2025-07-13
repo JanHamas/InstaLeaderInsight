@@ -8,7 +8,7 @@ OUTPUT_FILE_PATH = "data/ouput/InstaLeaderShip.xlsx"
 RANDOM_CLICK_SLEEP = random.randint(1,5)
 
 #
-SLEEP_BETWEEN_PAGE_LOADS = random.randint(3,6)*1000
+SLEEP_BETWEEN_PAGE_LOADS = random.randint(5,10)
 
 # screenshot folder for debuging
 SCREENSHOT_FOLDER = "data/screenshot"
@@ -25,11 +25,19 @@ CHECKED_USERNAMES_FILE_PATH = 'data/ouput/checked_usernames.txt'
 
 
 # size of tabs that should be open for check every profiles header section
-chunk_size = 5
+chunk_size = 1
 
 # excel lead file path
 LEADS_FILE_PATH = 'data/ouput/InstaLeaderShip.xlsx'
 
 # ON/OFF HEADLESS MODE
-HEADLESS = True
+HEADLESS = False
+
+# ON/OFF video from spider what they did and video are saving videos folder
+
+record_video = "ON"
+
+
+# proxies file path
+PROXIES_FILE_PATH = "data\input\proxies.txt"
 

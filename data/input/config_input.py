@@ -8,20 +8,13 @@ Do not provide any explanation. Do not describe the profile. Return only one wor
 Profile:
 """
 
-USERNAMES = [
-    "ambarp",              # Ambarish Paranjape, tech exec
-              # MG Siegler, GV investor
+USERNAMES = [             
+    "garyvee",                          
+    "mikko",               
+    "mgsiegler", 
 ]
 
-# "cyberjournalist",     # Sree Sreenivasan, tech/media
-#     "jsquires",            # Jane Squires, tech editor
-#     "naval",               # Naval Ravikant, AngelList
-#     "garyvee",             # Gary Vaynerchuk, tech/media investor
-#     "arrington",           # Michael Arrington, TechCrunch founder
-#     "a16z",                # Andreessen Horowitz (firm)
-#     "pmarca",              # Marc Andreessen, VC (a16z)
-#     "mikko",               # Mikko Hypponen, cybersecurity
-#     "mgsiegler", 
+
 # how much followers or following want to extract per profile
 user_connection = "following"
 how_much_followers_check = 50000
