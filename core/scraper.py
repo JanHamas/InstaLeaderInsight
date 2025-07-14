@@ -53,9 +53,9 @@ async def save_new_usernames(page,follower_elements):
             except Exception as e:
                 print(f"[!] Error reading user: {e}")
                 await page.close()
+                gc.collect()
                 break
                 
-
 # for fast scrolling function we have defined
 async def fast_scroll(page):
     for _ in range(6):
@@ -81,7 +81,7 @@ async def open_and_scrape_followers(context,page, username):
         previous_usernames = set()
         unchanged_count = 0
         scrolling_count = 0
-
+    
         while True:
 
             followers = page.locator('a[role="link"][tabindex="0"] div div span[dir="auto"]')
@@ -99,9 +99,10 @@ async def open_and_scrape_followers(context,page, username):
             else:
                 unchanged_count = 0
 
-            if unchanged_count >= 2:
+            if unchanged_count >= 1:
                 print(f"✅ Reached bottom of the followers list for {username}")
                 await page.close()
+                gc.collect()
                 break
 
             previous_usernames = current_usernames
@@ -114,39 +115,40 @@ async def open_and_scrape_followers(context,page, username):
             
             scrollable = page.locator('div[style*="overflow"][style*="auto"]')
             await scrollable.wait_for(state="visible")
-            await scrollable.scroll_into_view_if_needed()
+            # await scrollable.scroll_into_view_if_needed()
             await scrollable.hover()
             await scrollable.focus()
 
             # behave like ctrl+tab for keep focus on tabs
-            helpers.switch_tab(context)
-            
+            # helpers.switch_tab(context)
 
             for _ in range(15):
                 await fast_scroll(page=page)
             
             # clear garbab after three time scrolling
-            if scrolling_count % 3 == 0:
+            if scrolling_count % 2 == 0:
                  gc.collect()
             
     except Exception as e:
         print(f"[X] Error scraping {username}: {e}")
         await page.close()
+        gc.collect()
     finally:
         await page.close()
+        gc.collect()
 
 # for listing following/followers from provided usernames
-async def followers_scraper_main():
+async def followers_lister_main():
     p = await async_playwright().start()
     await load_saved_usernames()
 
     browser = await p.chromium.launch(headless=settings.HEADLESS)
-    context = await browser.new_context(storage_state="auth.json")
+    context = await browser.new_context(storage_state=r"accounts\auth1.json")
 
     tasks = []
     for username in config_input.USERNAMES:
         page = await context.new_page()
-        tasks.append(open_and_scrape_followers(context,page, username))
+        await open_and_scrape_followers(context,page, username)
 
-    await asyncio.gather(*tasks)
+    # await asyncio.gather(*tasks)
     await helpers.close_context_and_keep_latest_two(context)

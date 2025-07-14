@@ -14,10 +14,10 @@ USERNAMES = [
     "itstechnical8", "blackwomentalktech", "mobilopedia", "techikeee",
     "techinfluencemedia", "bigtechmoney", "tec_tok_by_hareesh", "imjustcyrus",
     "iJustine",
-    # "andrewethanzeng", "betterscreentime", "meshaobbreona", "cleoabram",
-    # "austinnasso", "taramreed_", "familytech", "alliekmiller",
-    # "karlconrad", "lilmiquela", "lovee_charms", "hadyouatsalaam",
-    # "tayllorlloyd", "tiffintech", "shudu.gram", "tatam.digital"
+    "andrewethanzeng", "betterscreentime", "meshaobbreona", "cleoabram",
+    "austinnasso", "taramreed_", "familytech", "alliekmiller",
+    "karlconrad", "lilmiquela", "lovee_charms", "hadyouatsalaam",
+    "tayllorlloyd", "tiffintech", "shudu.gram", "tatam.digital"
 ]
 
 

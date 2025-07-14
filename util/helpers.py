@@ -9,6 +9,8 @@ import openpyxl
 from config import settings
 import ctypes
 import random
+from playwright.async_api import BrowserContext
+
 
 # Get the latest Instagram OTP from Gmail
 async def get_latest_instagram_otp(email_user, email_pass, timeout=50):
@@ -130,11 +132,12 @@ user_agents = [
 ]
 
 # this function are update excel file
-def update_excel(row: list[str]) -> None:
+async def update_excel(row: list[str]) -> None:
     wb = openpyxl.load_workbook(settings.LEADS_FILE_PATH)
     sheet = wb.active
     sheet.append(row)
     wb.save(settings.LEADS_FILE_PATH)
+    print("✅ Saved in excel!")
 
 # This function are split usernames from usernames.txt in to chunk for parallel execution on multiple tabs
 def split_usernames_into_chunks(chunk_count=settings.chunk_size) -> list[list[str]]:
@@ -255,11 +258,9 @@ async def humanize_behave_on_page(page):
             await page.mouse.wheel(0, scroll_amount)
             await asyncio.sleep(random.uniform(0.2, 0.4))
 
-        print("🤖 Simulated human behavior")
+        # print("🤖 Simulated human behavior")
     except Exception as e:
         print(f"[!] Humanization failed: {e}")
-
-
 
 # 
 async def switch_tab(context):
@@ -282,21 +283,23 @@ async def switch_tab(context):
     await pages[next_index].bring_to_front()
     print(f"🌀 Switched to tab {next_index + 1}")
 
-
 import os
-import asyncio
 from playwright.async_api import BrowserContext
 
-def delete_all_except_latest_two(folder_path: str):
-    # Get all files with full path
-    files = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
-             if os.path.isfile(os.path.join(folder_path, f))]
 
-    # Sort files by modified time (descending: newest first)
+def delete_all_except_latest_two(folder_path: str):
+    # Get all .webm files (video recordings) with full paths
+    files = [
+        os.path.join(folder_path, f)
+        for f in os.listdir(folder_path)
+        if os.path.isfile(os.path.join(folder_path, f)) and f.lower().endswith('.webm')
+    ]
+
+    # Sort by modified time descending (latest first)
     files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
 
-    # Keep the top 2, delete the rest
-    files_to_delete = files[2:]  # Skip first two (latest)
+    # Keep the latest two, delete the rest
+    files_to_delete = files[2:]
 
     for file in files_to_delete:
         try:
@@ -306,8 +309,15 @@ def delete_all_except_latest_two(folder_path: str):
             print(f"⚠️ Error deleting {file}: {e}")
 
 async def close_context_and_keep_latest_two(context: BrowserContext, folder_path: str):
+    # Delete old recordings first
     delete_all_except_latest_two(folder_path)
 
+    # Close the browser context
     if context:
         await context.close()
         print("✅ Browser context closed.")
+
+
+
+
+
