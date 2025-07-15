@@ -125,10 +125,6 @@ async def open_and_scrape_followers(context,page, username):
             for _ in range(15):
                 await fast_scroll(page=page)
             
-            # clear garbab after three time scrolling
-            if scrolling_count % 2 == 0:
-                 gc.collect()
-            
     except Exception as e:
         print(f"[X] Error scraping {username}: {e}")
         await page.close()

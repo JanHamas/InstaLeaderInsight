@@ -14,8 +14,10 @@ async def create_context_with_proxy(browser: Browser, proxy: dict, use_storage: 
         }
         # list of login session
         list_of_accounts = [
-            # "accounts\\auth0.json",
-            "accounts\\auth1.json"
+            "accounts\\auth0.json",
+            "accounts\\auth1.json",
+            "accounts\\auth2.json",
+            "accounts\\auth3.json"
         ]
         
         if use_storage:
@@ -87,7 +89,7 @@ async def scrap_profile(browser: Browser, usernames: list[str]) -> None:
         try:
             page = await context.new_page()
             url = f"https://www.{username}/"
-            await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
             await asyncio.sleep((random.randint(1,4)))
 
